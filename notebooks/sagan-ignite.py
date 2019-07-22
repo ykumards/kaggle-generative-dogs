@@ -7,7 +7,7 @@
 # version 1
 # ---------------------------------
 # - SAGAN baseline
-# - num epochs = 5
+# - num epochs = 450
 
 
 # In[ ]:
@@ -955,5 +955,23 @@ shutil.make_archive('images', 'zip', '/scratch/work/kumary1/dogs/output_images')
 # In[ ]:
 
 
-get_ipython().run_cell_magic('time', '', 'if COMPUTE_LB:\n    # UNCOMPRESS OUR IMGAES\n    shutil.unpack_archive(\'images.zip\', extract_dir=\'../tmp/images2\')\n#     with zipfile.ZipFile("./images.zip","r") as z:\n#         z.extractall("../tmp/images2/")\n\n    # COMPUTE LB SCORE\n    m2 = []; s2 =[]; f2 = []\n    user_images_unzipped_path = \'../tmp/images2/\'\n    images_path = [user_images_unzipped_path,\'/scratch/work/kumary1/dogs/all-dogs/\']\n    public_path = \'/scratch/work/kumary1/dogs/classify_image_graph_def.pb\'\n\n    fid_epsilon = 10e-15\n\n    fid_value_public, distance_public, m2, s2, f2 = calculate_kid_given_paths(images_path, \'Inception\', public_path, mm=m2, ss=s2, ff=f2)\n    distance_public = distance_thresholding(distance_public, model_params[\'Inception\'][\'cosine_distance_eps\'])\n    print("FID_public: ", fid_value_public, "distance_public: ", distance_public, "multiplied_public: ",\n            fid_value_public /(distance_public + fid_epsilon))\n    \n    # REMOVE FILES TO PREVENT KERNEL ERROR OF TOO MANY FILES\n    ! rm -r ../tmp')
+if COMPUTE_LB:
+    # UNCOMPRESS OUR IMGAES
+    shutil.unpack_archive('images.zip', extract_dir='../tmp/images2')
+
+    # COMPUTE LB SCORE
+    m2 = []; s2 =[]; f2 = []
+    user_images_unzipped_path = '../tmp/images2/'
+    images_path = [user_images_unzipped_path,'/scratch/work/kumary1/dogs/all-dogs/']
+    public_path = '/scratch/work/kumary1/dogs/classify_image_graph_def.pb'
+
+    fid_epsilon = 10e-15
+
+    fid_value_public, distance_public, m2, s2, f2 = calculate_kid_given_paths(images_path, 'Inception', public_path, mm=m2, ss=s2, ff=f2)
+    distance_public = distance_thresholding(distance_public, model_params['Inception']['cosine_distance_eps'])
+    print("FID_public: ", fid_value_public, "distance_public: ", distance_public, "multiplied_public: ",
+            fid_value_public /(distance_public + fid_epsilon))
+    
+    # REMOVE FILES TO PREVENT KERNEL ERROR OF TOO MANY FILES
+    get_ipython().system(' rm -r ../tmp')
 
