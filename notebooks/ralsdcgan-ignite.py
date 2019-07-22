@@ -122,7 +122,6 @@ torch.manual_seed(args.seed);
 ### Eval Code
 #####################
 
-from __future__ import absolute_import, division, print_function
 import numpy as np
 import os
 import gzip, pickle
