@@ -89,7 +89,7 @@ args = Namespace(
     root_annots=Path("/scratch/work/kumary1/dogs//Annotation/"),
     
     ######### Training Params ######################
-    num_epochs=450,
+    num_epochs=10,
     lr=1e-4,
     beta1 = 0.5, # for adam
     batch_size=32,
