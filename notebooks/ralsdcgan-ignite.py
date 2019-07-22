@@ -837,7 +837,7 @@ for i_batch in range(0, n_images, im_batch_size):
     images = gen_images.to("cpu").clone().detach()
     images = images.numpy().transpose(0, 2, 3, 1)
     for i_image in range(gen_images.size(0)):
-        save_image(gen_images[i_image, :, :, :], os.path.join('../output_images', f'image_{i_batch+i_image:05d}.png'))
+        save_image(gen_images[i_image, :, :, :], os.path.join('/scratch/work/kumary1/dogs/output_images', f'image_{i_batch+i_image:05d}.png'))
 
 
 import shutil
