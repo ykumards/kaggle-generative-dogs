@@ -36,7 +36,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET # for parsing XML
 from PIL import Image # to read images
 import glob
-from tqdm import tqdm_notebook as tqdm 
+from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
