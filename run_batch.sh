@@ -5,4 +5,4 @@
 
 module load anaconda3
 pip install pytorch-ignite --user
-srun ipython notebooks/ralsdcgan-ignite.py 
+srun ipython notebooks/dcgan-ignite-baseline-leval.py 

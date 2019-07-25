@@ -4,10 +4,11 @@
 # In[1]:
 
 
-# version 3
+# version 2
 # ---------------------------------
-# - Add code for local eval
-# - num epochs = 5
+# - DCGAN with standard GAN loss for baseline
+# - last version had TOed
+# - num epochs = 450
 
 
 # In[2]:
@@ -36,7 +37,7 @@ from pathlib import Path
 import xml.etree.ElementTree as ET # for parsing XML
 from PIL import Image # to read images
 import glob
-from tqdm import tqdm
+from tqdm import tqdm 
 
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
@@ -516,7 +517,18 @@ dataloader = torch.utils.data.DataLoader(train_data,
                                          num_workers=args.num_workers)
 
 
-# In[8]:
+# In[1]:
+
+
+# # Plot some training images
+# real_batch = next(iter(dataloader))
+# plt.figure(figsize=(8,8))
+# plt.axis("off")
+# plt.title("Training Images")
+# plt.imshow(np.transpose(vutils.make_grid(real_batch[0].to(device)[:64], padding=2, normalize=True).cpu(),(1,2,0)))
+
+
+# In[9]:
 
 
 ## All Model Related
@@ -604,6 +616,7 @@ class Discriminator(Net):
 #             nn.PReLU(),
             # state size. (args.num_feature_maps_disc * 8) x 4 x 4
             nn.Conv2d(args.num_feature_maps_disc * 8, 1, 4, 1, 0, bias=False),
+            #### NOTE: SIGMOID IS added at loss for stability!
 #             nn.Sigmoid()
         )
         self.weights_init()
@@ -612,7 +625,7 @@ class Discriminator(Net):
         return self.main(input)
 
 
-# In[9]:
+# In[10]:
 
 
 netG = Generator().to(device)
@@ -626,10 +639,10 @@ criterion = nn.BCEWithLogitsLoss()
 fixed_noise = torch.randn(64, args.latent_dim, 1, 1, device=device)
 
 # Establish convention for real and fake labels during training
-real_label = 1
+real_label = 0.9
 fake_label = 0
 
-optimizerD = optim.Adam(netD.parameters(), lr=args.lr/2.0, betas=(args.beta1, 0.999))
+optimizerD = optim.Adam(netD.parameters(), lr=args.lr/2, betas=(args.beta1, 0.999))
 optimizerG = optim.Adam(netG.parameters(), lr=args.lr, betas=(args.beta1, 0.999))
 scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizerD, factor=0.5, patience=2, verbose=True)
 scheduler = optim.lr_scheduler.StepLR(optimizerD, gamma=0.5, step_size=8)
@@ -637,37 +650,39 @@ scheduler = optim.lr_scheduler.StepLR(optimizerD, gamma=0.5, step_size=8)
 def step(engine, batch):
     real_cpu_batch = batch.to(device)
     args.batch_size = real_cpu_batch.size(0)
-    label = torch.full((args.batch_size,), real_label, device=device)
-    
+
     for _ in range(args.num_disc_update):
         netD.zero_grad()
-
+        b_size = real_cpu_batch.size(0)
+        label = torch.full((b_size,), real_label, device=device)
+        
         # train separately with all trues and all fake images
         # GANHACK #4 
         ## Train with all-real batch
         # Forward pass real batch through D
 
-        outputR = netD(real_cpu_batch).view(-1)
-        D_x = outputR.mean().item()
+        output = netD(real_cpu_batch).view(-1)
+        errD_real = criterion(output, label)
+        errD_real.backward()
+        D_x = F.sigmoid(output).mean().item()
 
         ## Train with all-fake batch
         # Generate batch of latent vectors
         # Sampling from Gaussian Space is GANHACKS #3
-        noise = torch.randn(args.batch_size, args.latent_dim, 1, 1, device=device)
+        noise = torch.randn(b_size, args.latent_dim, 1, 1, device=device)
+        label.fill_(fake_label)
         # Generate fake image batch with G
         fake = netG(noise)
 
         # Classify all fake batch with D
-        outputF = netD(fake.detach()).view(-1)
-        D_G_z1 = outputF.mean().item()
+        output = netD(fake.detach()).view(-1)
+        errD_fake = criterion(output, label)
+        errD_fake.backward()
+        D_G_z1 = F.sigmoid(output).mean().item()
 
-        # RalsGAN loss function
-        ### Relativistic average LSGAN
-        # https://github.com/AlexiaJM/RelativisticGAN
-        errD = (torch.mean((outputR - torch.mean(outputF) - label) ** 2) + 
-                torch.mean((outputF - torch.mean(outputR) + label) ** 2))/2
-        errD.backward(retain_graph=True)
-
+        # Add the gradients from the all-real and all-fake batches
+        errD = errD_real + errD_fake
+        
         # Update D
         optimizerD.step()
         
@@ -675,16 +690,19 @@ def step(engine, batch):
     # (2) Update G network: maximize log(D(G(z)))
     ###########################
     netG.zero_grad()
+    
+    # IMPORTANT (without this we maximize log(1 - D(G(z)))) gen never learns to fool the disc
+    label.fill_(real_label) 
+    ###########################
+    noise = torch.randn(args.batch_size, args.latent_dim, 1, 1, device=device)
+    fake = netG(noise)
     # Since we just updated D, perform another forward pass of all-fake batch through D
-    outputF = netD(fake).view(-1)
-    # Calculate G's loss based on this output (RalSGAN)
-    ### Relativistic average LSGAN
-    # https://github.com/AlexiaJM/RelativisticGAN
-    errG = (torch.mean((outputR - torch.mean(outputF) + label) ** 2) +
-            torch.mean((outputF - torch.mean(outputR) - label) ** 2))/2
+    output = netD(fake).view(-1)
+    
+    errG = criterion(output, label)
     # Calculate gradients for G
     errG.backward()
-    D_G_z2 = outputF.mean().item()
+    D_G_z2 = F.sigmoid(output).mean().item()
     # Update G
     optimizerG.step()
     
@@ -697,7 +715,7 @@ def step(engine, batch):
     }
 
 
-# In[10]:
+# In[11]:
 
 
 clear_output_dir()
@@ -810,14 +828,14 @@ def handle_exception(engine, e):
 trainer.run(dataloader, args.num_epochs)
 
 
-# In[11]:
+# In[12]:
 
 
-# analysize logs
+# # analysize logs
 # display(SVG("../output_dir/plot.svg"))
 
 
-# In[12]:
+# In[13]:
 
 
 # display(Image.open(os.path.join(args.output_dir, args.REAL_IMG_FNAME.format(args.num_epochs-1))))
@@ -827,30 +845,16 @@ trainer.run(dataloader, args.num_epochs)
 # In[14]:
 
 
-if not os.path.exists('/scratch/work/kumary1/dogs/output_images'):
-    os.mkdir('/scratch/work/kumary1/dogs/output_images')
-im_batch_size = 50
-n_images=10000
-for i_batch in range(0, n_images, im_batch_size):
-    gen_z = torch.randn(im_batch_size, args.latent_dim, 1, 1, device=device)
-    gen_images = (netG(gen_z)+1.)/2. # denormalize
-    images = gen_images.to("cpu").clone().detach()
-    images = images.numpy().transpose(0, 2, 3, 1)
-    for i_image in range(gen_images.size(0)):
-        save_image(gen_images[i_image, :, :, :], os.path.join('/scratch/work/kumary1/dogs/output_images', f'image_{i_batch+i_image:05d}.png'))
-
-
-import shutil
-shutil.make_archive('images', 'zip', '/scratch/work/kumary1/dogs/output_images')
+get_ipython().run_cell_magic('time', '', 'if not os.path.exists(\'../output_images\'):\n    os.mkdir(\'../output_images\')\nim_batch_size = 50\nn_images=10000\nfor i_batch in range(0, n_images, im_batch_size):\n    gen_z = torch.randn(im_batch_size, args.latent_dim, 1, 1, device=device)\n    gen_images = (netG(gen_z)+1.)/2. # denormalize\n    images = gen_images.to("cpu").clone().detach()\n    images = images.numpy().transpose(0, 2, 3, 1)\n    for i_image in range(gen_images.size(0)):\n        save_image(gen_images[i_image, :, :, :], os.path.join(\'../output_images\', f\'image_{i_batch+i_image:05d}.png\'))\n\n\nimport shutil\nshutil.make_archive(\'images\', \'zip\', \'../output_images\')')
 
 
 # In[15]:
 
 
-get_ipython().run_cell_magic('time', '', 'if COMPUTE_LB:\n    # UNCOMPRESS OUR IMGAES\n    shutil.unpack_archive(\'images.zip\', extract_dir=\'../tmp/images2\')\n#     with zipfile.ZipFile("./images.zip","r") as z:\n#         z.extractall("../tmp/images2/")\n\n    # COMPUTE LB SCORE\n    m2 = []; s2 =[]; f2 = []\n    user_images_unzipped_path = \'../tmp/images2/\'\n    images_path = [user_images_unzipped_path,\'/scratch/work/kumary1/dogs/all-dogs/\']\n    public_path = \'/scratch/work/kumary1/dogs/classify_image_graph_def.pb\'\n\n    fid_epsilon = 10e-15\n\n    fid_value_public, distance_public, m2, s2, f2 = calculate_kid_given_paths(images_path, \'Inception\', public_path, mm=m2, ss=s2, ff=f2)\n    distance_public = distance_thresholding(distance_public, model_params[\'Inception\'][\'cosine_distance_eps\'])\n    print("FID_public: ", fid_value_public, "distance_public: ", distance_public, "multiplied_public: ",\n            fid_value_public /(distance_public + fid_epsilon))\n    \n    # REMOVE FILES TO PREVENT KERNEL ERROR OF TOO MANY FILES\n    ! rm -r ../tmp')
+get_ipython().run_cell_magic('time', '', 'if COMPUTE_LB:\n    # UNCOMPRESS OUR IMGAES\n    shutil.unpack_archive(\'images.zip\', extract_dir=\'../tmp/images2\')\n#     with zipfile.ZipFile("./images.zip","r") as z:\n#         z.extractall("../tmp/images2/")\n\n    # COMPUTE LB SCORE\n    m2 = []; s2 =[]; f2 = []\n    user_images_unzipped_path = \'../tmp/images2/\'\n    images_path = [user_images_unzipped_path,\'../input/generative-dog-images/all-dogs/all-dogs/\']\n    public_path = \'../input/dog-face-generation-competition-kid-metric-input/classify_image_graph_def.pb\'\n\n    fid_epsilon = 10e-15\n\n    fid_value_public, distance_public, m2, s2, f2 = calculate_kid_given_paths(images_path, \'Inception\', public_path, mm=m2, ss=s2, ff=f2)\n    distance_public = distance_thresholding(distance_public, model_params[\'Inception\'][\'cosine_distance_eps\'])\n    print("FID_public: ", fid_value_public, "distance_public: ", distance_public, "multiplied_public: ",\n            fid_value_public /(distance_public + fid_epsilon))\n    \n    # REMOVE FILES TO PREVENT KERNEL ERROR OF TOO MANY FILES\n    ! rm -r ../tmp')
 
 
-# In[ ]:
+# In[16]:
 
 
 print(f"Done in {(time.time() - starttime)/60:.4f} minutes.")
