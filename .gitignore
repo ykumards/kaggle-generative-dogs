@@ -1,2 +1,4 @@
 input/
+*.zip
+output_dir/
 ./ipynb_checkpoints/
