@@ -47,7 +47,7 @@ import model
 from utils import *
 from args import args
 
-
+CUTOFF_SECONDS = 45000
 seed_everything(seed=args.seed)
 transform1, transform2 = data.get_transforms(args.image_size)
 train_data = data.DogDataset(img_dir=args.root_images,
@@ -253,7 +253,7 @@ def create_plots(engine):
         
 @trainer.on(Events.EPOCH_STARTED)
 def handle_timeout(engine):
-    if time.perf_counter() - kernel_start_time > 45000:
+    if time.perf_counter() - kernel_start_time > CUTOFF_SECONDS:
         print("Time limit reached! Stopping kernel!")
         engine.terminate()
 
