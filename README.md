@@ -11,3 +11,15 @@
 - After 265 epochs, here are some generated images
 
 ![Generated Sample after 265 epochs](./fake_sample_epoch_0265.png)
+
+
+---
+#### Credits
+- Kaggle Kernels
+  - https://www.kaggle.com/phoenix9032/gan-dogs-starter-24-jul-custom-layers
+  - https://www.kaggle.com/speedwagon/ralsgan-dogs
+- Github Repos
+  - https://github.com/shayneobrien/generative-models
+  - https://github.com/ozanciga/gans-with-pytorch
+  - https://github.com/voletiv/self-attention-GAN-pytorch
+  - https://github.com/AlexiaJM/RelativisticGAN
