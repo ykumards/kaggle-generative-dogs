@@ -288,5 +288,5 @@ def handle_exception(engine, e):
 trainer.run(dataloader, args.num_epochs)
 
 
-good_breeds = analyse_generated_by_class(6)
+good_breeds = analyse_generated_by_class(6, decoded_dog_labels)
 create_submit(good_breeds)

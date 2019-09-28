@@ -66,7 +66,7 @@ def mse(imageA, imageB):
         err /= float(imageA.shape[0] * imageA.shape[1])
         return err
 
-def analyse_generated_by_class(n_images=5):
+def analyse_generated_by_class(n_images=5, decoded_dog_labels):
     good_breeds = []
     for l in range(len(decoded_dog_labels)):
         sample = []
