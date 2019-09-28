@@ -102,9 +102,6 @@ def step(engine, batch):
         D_loss = (torch.mean(torch.nn.ReLU()(1.0 - (Dx_score - torch.mean(DG_score)))) + 
                   torch.mean(torch.nn.ReLU()(1.0 + (DG_score - torch.mean(Dx_score)))))/2
         
-#         D_loss = (BCE_stable(Dx_score - torch.mean(DG_score), real_labels) +\
-#                   BCE_stable(DG_score - torch.mean(Dx_score), fake_labels))/2
-        
         return D_loss, F.sigmoid(Dx_score).mean().item(), F.sigmoid(DG_score).mean().item()
     
     def train_G(images, labels):
@@ -119,8 +116,6 @@ def step(engine, batch):
         noise = torch.randn(args.batch_size, args.latent_dim, device=device)
         G_output = netG(noise, labels) # G(z)
                   
-#         fake_labels = torch.full((args.batch_size,), fake_label, device=device)
-#         real_labels = torch.full((args.batch_size,), real_label, device=device)
 
         Dx_score = netD(images, labels) # D(x)
         DG_score = netD(G_output, labels) # D(G(z))
@@ -128,8 +123,6 @@ def step(engine, batch):
         # Compute RA NS loss for G                
         G_loss = (torch.mean(torch.nn.ReLU()(1.0 + (Dx_score - torch.mean(DG_score)))) + 
                   torch.mean(torch.nn.ReLU()(1.0 - (DG_score - torch.mean(Dx_score)))))/2
-#         G_loss = (BCE_stable(Dx_score - torch.mean(DG_score), fake_labels) +\
-#                   BCE_stable(DG_score - torch.mean(Dx_score), real_labels))/2
         
         return G_loss, F.sigmoid(DG_score).mean().item()
     
